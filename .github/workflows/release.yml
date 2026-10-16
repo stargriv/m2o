@@ -23,11 +23,6 @@ jobs:
       matrix:
         include:
           - goos: darwin
-            goarch: amd64
-            runner: macos-13
-            extension: ""
-            archive: tar.gz
-          - goos: darwin
             goarch: arm64
             runner: macos-14
             extension: ""
