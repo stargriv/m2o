@@ -1,11 +1,54 @@
 # M2O Stream Player
 
-A small Python experiment that plays the Radio M2O live stream through the
-computer's default audio output. It uses [PyAV](https://pyav.org/) to decode
-the HLS stream and [SoundDevice](https://python-sounddevice.readthedocs.io/)
-to send resampled audio to the local sound device.
+A macOS command-line player for Radio M2O's live HLS stream. The primary
+implementation is a Go program that plays through macOS AVFoundation and
+prints the current track when it changes.
 
-## Requirements
+## Go standalone player (macOS)
+
+The Go command in `go/cmd/m2o/` uses the Go standard library plus macOS system
+frameworks (AVFoundation and AppKit). Build it once and copy `bin/m2o` to any
+directory; it does not need Python, FFmpeg, PortAudio, or a Go installation at
+runtime.
+
+Requirements:
+
+- macOS with a default audio output device
+- Go 1.27 or later, to build the binary
+- Internet access
+
+```sh
+make go-build
+./bin/m2o
+```
+
+Or build and run in one command:
+
+```sh
+make go-run
+```
+
+Track changes are printed in this form:
+
+```text
+11:50 16.10.2026 Zedd - Clarity (feat. Foxes)
+```
+
+Press `Ctrl+C` to stop. The binary is macOS-only because it uses Apple system
+frameworks for audio output.
+
+Run the Go tests with:
+
+```sh
+make go-test
+```
+
+## Legacy Python experiment
+
+`python/` contains the original Python prototype. It remains available for
+comparison, but the Go player above is the recommended way to run the stream.
+
+Requirements:
 
 - Python 3
 - A working default audio output device
@@ -18,7 +61,7 @@ On macOS, the native libraries can be installed with Homebrew:
 brew install portaudio ffmpeg
 ```
 
-## Setup
+### Setup
 
 Create and activate a virtual environment, then install the pinned Python
 dependencies:
@@ -26,15 +69,15 @@ dependencies:
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -r python/requirements.txt
 ```
 
-## Play the stream
+### Run
 
 Run:
 
 ```sh
-python stream_test.py
+make run
 ```
 
 The script opens the Radio M2O HLS endpoint, converts audio to 48 kHz stereo
@@ -48,22 +91,25 @@ URL remaining available.
 
 | File | Purpose |
 | --- | --- |
-| `stream_test.py` | Current working streaming-player experiment. |
-| `main.py` | Early callback/buffered playback prototype; it is incomplete. |
-| `local.py` | Local transport-stream playback prototype; it is incomplete. |
-| `requirements.txt` | Pinned Python dependencies. |
+| `go/go.mod` | Go module definition. |
+| `go/cmd/m2o/` | Go command, AVFoundation bridge, and Go tests. |
+| `bin/m2o` | Generated standalone macOS binary (not committed). |
+| `python/main.py` | Legacy Python callback/buffered playback prototype. |
+| `python/tests/` | Python unit tests. |
+| `python/requirements.txt` | Pinned Python dependencies. |
 
 ## Troubleshooting
 
-- **No audio device / PortAudio error:** install PortAudio and make sure an
-  output device is configured in your operating system.
-- **PyAV installation fails:** install FFmpeg development libraries, then
-  retry the dependency installation.
-- **Playback stops or cannot open the stream:** check the network connection
-  and confirm the embedded HLS URL is still reachable.
+- **No sound from the Go player:** confirm macOS has an active default output
+  device and that its volume is not muted. The player uses the same output as
+  other macOS media applications.
+- **`start audio playback` error:** check the network connection; the public
+  M2O HLS endpoint may be unavailable or changed.
+- **Python audio-device or installation errors:** install PortAudio and FFmpeg
+  with `brew install portaudio ffmpeg`, then repeat the Python setup.
 
 ## Status
 
-This repository is a focused audio-playback experiment rather than a polished
-application. There is currently no command-line configuration, automated test
-suite, or reconnect logic.
+This is a focused audio-playback application. It has automated tests for the
+HTTP metadata, redirect handling, and title formatting, but it currently has
+no command-line configuration or reconnect logic.
