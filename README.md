@@ -43,6 +43,17 @@ Run the Go tests with:
 make go-test
 ```
 
+## Releases
+
+The GitHub Actions release workflow packages binaries for macOS, Linux, and
+Windows on both amd64 and arm64. Pushing a tag such as `v0.0.1` creates the
+matching GitHub release; it can also be run manually with `v0.0.1` as the
+default release tag.
+
+Only the macOS binaries provide playback today because the player uses
+AVFoundation. The Linux and Windows builds are published for distribution and
+will report that no audio backend is available when run.
+
 ## Legacy Python experiment
 
 `python/` contains the original Python prototype. It remains available for

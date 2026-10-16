@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag (for example, v0.0.1)"
+        required: true
+        default: "v0.0.1"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.goos }}-${{ matrix.goarch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+            runner: macos-13
+            extension: ""
+            archive: tar.gz
+          - goos: darwin
+            goarch: arm64
+            runner: macos-14
+            extension: ""
+            archive: tar.gz
+          - goos: linux
+            goarch: amd64
+            runner: ubuntu-latest
+            extension: ""
+            archive: tar.gz
+          - goos: linux
+            goarch: arm64
+            runner: ubuntu-latest
+            extension: ""
+            archive: tar.gz
+          - goos: windows
+            goarch: amd64
+            runner: ubuntu-latest
+            extension: ".exe"
+            archive: zip
+          - goos: windows
+            goarch: arm64
+            runner: ubuntu-latest
+            extension: ".exe"
+            archive: zip
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+
+      - name: Test
+        run: cd go && go test ./...
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: ${{ matrix.goos == 'darwin' && '1' || '0' }}
+        run: |
+          mkdir -p dist
+          cd go
+          go build -trimpath -ldflags='-s -w' -o "../dist/m2o${{ matrix.extension }}" ./cmd/m2o
+
+      - name: Package Unix archive
+        if: matrix.archive == 'tar.gz'
+        run: tar -C dist -czf "dist/m2o_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz" m2o
+
+      - name: Package Windows archive
+        if: matrix.archive == 'zip'
+        run: zip -j "dist/m2o_${{ matrix.goos }}_${{ matrix.goarch }}.zip" "dist/m2o.exe"
+
+      - name: Upload release asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2o_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dist/m2o_${{ matrix.goos }}_${{ matrix.goarch }}.${{ matrix.archive }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create or update GitHub release
+        run: |
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release upload "$VERSION" dist/* --clobber
+          else
+            gh release create "$VERSION" dist/* --title "$VERSION" --generate-notes
+          fi
